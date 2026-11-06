@@ -17,7 +17,6 @@
 /.venv/
 /.uv-cache/
 # Full instructor guides are retained locally, outside the student repository.
-/docs/
 /README_FULL.md
 /CMakeUserPresets.json
 # Share source code rather than generated executables, intermediate files or logs.
