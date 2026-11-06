@@ -1,7 +1,6 @@
 # Deep Sleep Deprived: firmware and app architecture
 
 **Board:** E2 Axle Strain Gauge, RevB (EFR32BG24B210F1024IM48)
-**Status:** draft for team review. Comment on the pull request. Review due Sun 2026-11-08.
 **Scope:** the custom board's firmware first. The dev-kit build for the Dec 1 in-class demo is a later task (see [§10](#10-tasks)).
 
 Items marked **VERIFY** are assumptions. Check them against a datasheet or on the board before coding against them.
@@ -10,7 +9,7 @@ Items marked **VERIFY** are assumptions. Check them against a datasheet or on th
 
 ## 1. What the first version must do
 
-From the 2026-11-06 team meeting:
+Requirements:
 
 1. Read the strain-gauge Wheatstone bridge through the ADS122C04 ADC.
 2. Store the samples in the W25Q128 SPI flash.
@@ -178,7 +177,7 @@ Expected awake time is about 15 ms per sample. Measure it with AEM. If the switc
 
 ### 5.1 Sampling and streaming together
 
-**Decided (2026-11-06): sampling keeps running during STREAM.** The 10 Hz sample timer and the radio are both event-driven, so STREAM runs alongside SAMPLE instead of replacing it. The data has no gaps.
+Sampling keeps running during STREAM. The 10 Hz sample timer and the radio are both event-driven, so STREAM runs alongside SAMPLE instead of replacing it. The data has no gaps.
 
 - The next 60 s window starts filling a second RAM block while the previous block commits and streams (double-buffering).
 - If COMMIT or STREAM is still running when that next window ends, the state machine waits to start the next COMMIT until the previous one is done. Sampling never blocks.
@@ -195,7 +194,7 @@ Windows may refuse long intervals. **Measure** what Windows accepts, and fall ba
 
 ### 5.3 Low-energy policy (thresholds in `app_config.h`, to be tuned on the board)
 
-The values below are **agreed placeholders** (2026-11-06). They get replaced with measured values in M5.
+The values below are placeholders until they are measured in M5.
 
 | V_SYS | Behavior |
 |---|---|
@@ -277,7 +276,7 @@ Ask for a 247-byte MTU and the 2M PHY where available. At about 244-byte chunks,
 
 | # | Item | Plan |
 |---|---|---|
-| 1 | J5 is Cortex-10, the Pro Kit is Mini-Simplicity | **Agreed:** program and power the board through an adapter or hand-wired 1.27 mm jumpers. Confirm the pin mapping before first power-up (M1 task). |
+| 1 | J5 is Cortex-10, the Pro Kit is Mini-Simplicity | Program and power the board through an adapter or hand-wired 1.27 mm jumpers. Confirm the pin mapping before first power-up (M1 task). |
 | 2 | Boards may arrive late (week 13) | Develop drivers on the Pro Kit with jumper-wired breakouts where possible. Keep the board config in one file so switching targets is a one-line change. |
 | 3 | Windows BLE connection-interval limits | Measure early. Fall back to re-advertising if long intervals are refused. |
 | 4 | HFXO CTUNE for the 39 MHz crystal | Start from the BRD4186C value, then trim with Commander or an RF frequency check. **VERIFY** the crystal's CL. |
@@ -288,7 +287,7 @@ Ask for a 247-byte MTU and the 2M PHY where available. At about 244-byte chunks,
 
 ## 10. Tasks
 
-No owners. Pick tasks at the review. Milestone order matters, but the tasks inside each milestone can run in parallel.
+No owners. Milestone order matters, but the tasks inside each milestone can run in parallel.
 
 **M0 — Toolchain**
 - [ ] Everyone: run *Starter: first setup* and build the demo
@@ -324,7 +323,7 @@ No owners. Pick tasks at the review. Milestone order matters, but the tasks insi
 **M5 — Energy and verification**
 - [ ] AEM captures: sleep floor, one sample, COMMIT, STREAM block, advertising window
 - [ ] Energy budget JSON from the measurements (`tools/energy_budget.py`); compare to harvest at the demo source
-- [ ] Shunt-resistor test on harvested power (meeting plan)
+- [ ] Shunt-resistor test on harvested power
 - [ ] Tune §5.3 thresholds and data rate
 
 **M6 — Dev-kit demo build (Dec 1)**
