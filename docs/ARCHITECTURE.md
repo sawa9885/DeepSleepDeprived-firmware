@@ -165,24 +165,23 @@ Expected awake time is about 15 ms per sample. Measure it with AEM. If the switc
           ┌──────────┐ 10 Hz samples into RAM block; every 1 s read CAP_SENSE + PGOOD
    ┌────► │  SAMPLE  │──── 60 s elapsed ────┐
    │      └──────────┘                      ▼
-   │                                  ┌──────────┐ write block to flash (FLASH_EN on → program → off)
-   │                                  │  COMMIT  │
+   │   (keeps sampling into the     ┌──────────┐ write block to flash (FLASH_EN on → program → off)
+   │    other RAM block, §5.1)      │  COMMIT  │
    │                                  └────┬─────┘
    │                                       ▼
    │                                  ┌──────────┐ if connected: send unsent blocks
    └──── done / timeout / low energy ─│  STREAM  │ if not: advertise up to 10 s
                                       └──────────┘
+          COMMIT and STREAM run alongside SAMPLE. They never pause it.
           LOW_ENERGY: V_SYS below threshold → stop sampling + radio; wake every 10 s to recheck
 ```
 
 ### 5.1 Sampling and streaming together
 
-The meeting described two separate modes. Two choices for version 1:
+**Decided (2026-11-06): sampling keeps running during STREAM.** The 10 Hz sample timer and the radio are both event-driven, so STREAM runs alongside SAMPLE instead of replacing it. The data has no gaps.
 
-- **A (simplest).** Sampling pauses during STREAM, which lasts at most about 15 s. This leaves a timestamped gap every minute.
-- **B.** Sampling keeps running during STREAM, since the radio and the ADC are both event-driven. The code is barely more complex.
-
-**Proposal: B**, because data gaps hurt the demo more than a little extra code does. **Decide at review.**
+- The next 60 s window starts filling a second RAM block while the previous block commits and streams (double-buffering).
+- If COMMIT or STREAM is still running when that next window ends, the state machine waits to start the next COMMIT until the previous one is done. Sampling never blocks.
 
 ### 5.2 Staying connected instead of re-advertising
 
@@ -195,6 +194,8 @@ Chrome's Web Bluetooth needs a user click to connect, and reconnecting by itself
 Windows may refuse long intervals. **Measure** what Windows accepts, and fall back to about 100–200 ms if needed.
 
 ### 5.3 Low-energy policy (thresholds in `app_config.h`, to be tuned on the board)
+
+The values below are **agreed placeholders** (2026-11-06). They get replaced with measured values in M5.
 
 | V_SYS | Behavior |
 |---|---|
@@ -276,13 +277,12 @@ Ask for a 247-byte MTU and the 2M PHY where available. At about 244-byte chunks,
 
 | # | Item | Plan |
 |---|---|---|
-| 1 | J5 is Cortex-10, the Pro Kit is Mini-Simplicity | Make or buy an adapter, or hand-wire it with 1.27 mm jumpers. Confirm the pin mapping before first power-up. |
+| 1 | J5 is Cortex-10, the Pro Kit is Mini-Simplicity | **Agreed:** program and power the board through an adapter or hand-wired 1.27 mm jumpers. Confirm the pin mapping before first power-up (M1 task). |
 | 2 | Boards may arrive late (week 13) | Develop drivers on the Pro Kit with jumper-wired breakouts where possible. Keep the board config in one file so switching targets is a one-line change. |
 | 3 | Windows BLE connection-interval limits | Measure early. Fall back to re-advertising if long intervals are refused. |
 | 4 | HFXO CTUNE for the 39 MHz crystal | Start from the BRD4186C value, then trim with Commander or an RF frequency check. **VERIFY** the crystal's CL. |
 | 5 | Supercap leakage and divider current vs. harvest | Measure the sleep current with AEM. Tune the §5.3 thresholds. |
 | 6 | PAVDD runs from the DCDC, which caps TX power | 0 dBm is plenty for a laptop at demo range. |
-| 7 | Sampling during STREAM (§5.1 A vs B) | Decide at review. |
 
 ---
 
@@ -312,7 +312,7 @@ No owners. Pick tasks at the review. Milestone order matters, but the tasks insi
 **M3 — Application**
 - [ ] `strain.c` sample sequencing
 - [ ] `log_store.c` ring buffer, block encode/CRC, boot scan, ack record; host tests including wrap-around and power-loss mid-write
-- [ ] State machine in `app.c` (§5), including LOW_ENERGY
+- [ ] State machine in `app.c` (§5), including LOW_ENERGY and double-buffered blocks so sampling continues through COMMIT/STREAM
 - [ ] `timebase.c`
 
 **M4 — Bluetooth + web**
